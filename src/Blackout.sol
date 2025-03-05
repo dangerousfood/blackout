@@ -1,5 +1,7 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: Apache 2.0
 pragma solidity ^0.8.0;
+
+import {SafeTransferLib} from "solady/src/utils/SafeTransferLib.sol";
 
 /**
  * @title Blackout
@@ -7,11 +9,19 @@ pragma solidity ^0.8.0;
  * and maintain that state for 5000 blocks wins the accumulated ETH.
  */
 contract Blackout {
-    bool public lightsOn;
-    uint256 public toggleCount;
-    uint256 public lastToggleBlock;
-    address public lastToggler;
-    uint256 public constant BASE_PRICE = 1 wei;
+    bool public lightsOn = true;
+    uint64 public toggleCount = 1;
+    uint256 public immutable START_BLOCK;
+    uint256 public immutable TARGET_BLOCKS;
+
+    error LightsOnCannotWithdraw();
+    error CurrentPriceGreaterThanZero();
+    error InsufficientValue();
+
+    constructor(uint256 targetBlocks) {
+        START_BLOCK = block.number;
+        TARGET_BLOCKS = targetBlocks;
+    }
 
     /**
      * @dev Toggles the state of the lights and updates the game state.
@@ -19,18 +29,18 @@ contract Blackout {
      */
     function toggle() external payable {
         uint256 currentPrice = getCurrentPrice();
-        require(msg.value >= currentPrice, "Insufficient ETH sent");
+        if (msg.value < currentPrice) {
+            revert InsufficientValue();
+        }
 
         // Refund any excess ETH sent
         if (msg.value > currentPrice) {
-            payable(msg.sender).transfer(msg.value - currentPrice);
+            SafeTransferLib.safeTransferETH(msg.sender, msg.value - currentPrice);
         }
 
         // Toggle the lights
         lightsOn = !lightsOn;
         toggleCount++;
-        lastToggleBlock = block.number;
-        lastToggler = msg.sender;
     }
 
     /**
@@ -38,18 +48,27 @@ contract Blackout {
      * @return The current price in wei.
      */
     function getCurrentPrice() public view returns (uint256) {
-        return BASE_PRICE * (2 ** toggleCount);
+        uint256 expectedToggleCount = ((block.number - START_BLOCK) / TARGET_BLOCKS) + 1;
+        uint256 exponent = toggleCount / expectedToggleCount;
+        if (exponent > 256) {
+            return type(uint256).max;
+        }
+        return 2 ** (exponent) - 1;
     }
 
     /**
      * @dev Allows the last toggler to withdraw the contract balance if 5000 blocks have passed.
      */
     function withdraw() external {
-        require(block.number >= lastToggleBlock + 5000, "Game is still active");
-        require(!lightsOn, "Lights must be off to withdraw");
-        require(msg.sender == lastToggler, "Only the last toggler can withdraw");
+        if (lightsOn) {
+            revert LightsOnCannotWithdraw();
+        }
+        uint256 currentPrice = getCurrentPrice();
+        if (currentPrice > 0) {
+            revert CurrentPriceGreaterThanZero();
+        }
 
         uint256 balance = address(this).balance;
-        payable(msg.sender).transfer(balance);
+        SafeTransferLib.safeTransferETH(msg.sender, balance);
     }
-} 
+}
