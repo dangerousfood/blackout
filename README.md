@@ -1,3 +1,6 @@
+# Blackout
+Blackout is an infinite onchain game. Each player can toggle the switch. Each toggle for every 5,000 blocks is dynamically (exponentially) priced. When the price reaches zero and the lights are off any player can withdraw the balance. 
+
 ## Foundry
 
 **Foundry is a blazing fast, portable and modular toolkit for Ethereum application development written in Rust.**

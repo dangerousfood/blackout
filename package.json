@@ -1,0 +1,12 @@
+{
+  "name": "Blackout",
+  "version": "2.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "report": "forge coverage --no-match-test testFuzz --report lcov && genhtml -o report --branch-coverage lcov.info"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}

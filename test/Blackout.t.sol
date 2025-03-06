@@ -1,5 +1,5 @@
-// SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.0;
+// SPDX-License-Identifier: Apache 2.0
+pragma solidity ^0.8.26;
 
 import "forge-std/Test.sol";
 import "../src/Blackout.sol";
@@ -81,5 +81,14 @@ contract BlackoutTest is Test {
 
         assertEq(player1.balance, 10 ether + price2);
         assertEq(address(blackout).balance, 0);
+    }
+      function test_getCurrentPrice_exponent_greater_than_256() public {
+        for(uint256 i = 0; i < 500; i++) {
+          uint256 price = blackout.getCurrentPrice();
+          vm.deal(player1, price);
+          vm.prank(player1);
+          blackout.toggle{value: price}();
+          vm.deal(address(blackout), 0);
+        }
     }
 }
